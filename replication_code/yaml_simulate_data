@@ -1,15 +1,11 @@
 import yaml
-from simulation import SimulationConfig, simulate_dataset, save_train_test, run_monte_carlo
 from pathlib import Path
+from simulation import SimulationConfig, simulate_dataset, save_train_test, run_monte_carlo
 
-# -----------------------
-# Load config from YAML
-# -----------------------
 def load_config(path: str) -> SimulationConfig:
     with open(path, "r") as f:
         cfg = yaml.safe_load(f)
-    
-    sim_cfg = cfg["simulation"]
+    sim_cfg = cfg.get("simulation", {})
 
     return SimulationConfig(
         n_samples=sim_cfg.get("n_samples", 50000),
@@ -20,23 +16,20 @@ def load_config(path: str) -> SimulationConfig:
         train_file=sim_cfg.get("train_file", "train_data.csv"),
         test_file=sim_cfg.get("test_file", "test_data.csv"),
         test_size=sim_cfg.get("test_size", 0.2),
+        save_csv=sim_cfg.get("save_csv", True),
+        timestamped_files=sim_cfg.get("timestamped_files", True)
     )
 
 
-# -----------------------
-# Main Entry
-# -----------------------
 if __name__ == "__main__":
-    # Load YAML
     config_path = "config.yaml"
     config = load_config(config_path)
 
     # Run single simulation
     df = simulate_dataset(config)
-    save_train_test(df, config)
+    train_df, test_df = save_train_test(df, config)
 
-    # Optional: Run Monte Carlo
-    # If defined in YAML
+    # Optional Monte Carlo
     with open(config_path, "r") as f:
         cfg = yaml.safe_load(f)
     n_simulations = cfg.get("monte_carlo", {}).get("n_simulations", 0)
