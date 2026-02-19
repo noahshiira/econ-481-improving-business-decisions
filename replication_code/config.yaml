@@ -1,0 +1,14 @@
+# config.yaml
+simulation:
+  n_samples: 50000
+  p_treatment: 0.5
+  base_prob: 0.3
+  random_state: 2024
+  output_dir: "data"
+  train_file: "train_data.csv"
+  test_file: "test_data.csv"
+  test_size: 0.2
+
+monte_carlo:
+  n_simulations: 10
+
