@@ -1,0 +1,60 @@
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from .utils import set_seed
+from pathlib import Path
+
+class DataSimulator:
+    def __init__(self, config: dict):
+        self.config = config
+        self.n_samples = config['simulation']['n_samples']
+        self.test_size = config['simulation']['test_size']
+        self.seed = config['simulation']['seed']
+        self.output_dir = Path(config['paths']['data_dir']) / "processed"
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+        set_seed(self.seed)
+
+    def simulate(self):
+        n = self.n_samples
+
+        # Generate independent variables
+        X1 = np.random.rand(n)
+        X2 = np.random.rand(n)
+        X3 = np.random.rand(n)
+        X4 = np.random.rand(n)
+
+        # Correlated variable X5
+        noise = np.random.rand(n)
+        X5 = 0.3 * X4 + np.sqrt(1 - 0.3 ** 2) * noise
+
+        # Binary variables X6, X7
+        X6 = np.random.choice([0, 1], size=n, p=[0.8, 0.2])
+        X7 = np.random.choice([0, 1], size=n, p=[0.8, 0.2])
+
+        # Treatment variable
+        T = np.random.choice([0, 1], size=n, p=[0.5, 0.5])
+
+        # Outcome variable
+        Y = np.zeros(n, dtype=int)
+        for i in range(n):
+            if T[i] == 1:
+                prob_Y = 0.30 - 0.04 * (X1[i] + X2[i]) + 0.16 * (X3[i] * X4[i]) - 0.02 * X5[i] + 0.02 * X6[i]
+            else:
+                prob_Y = 0.30
+            prob_Y = min(max(prob_Y, 0), 1)
+            Y[i] = np.random.choice([0, 1], p=[1 - prob_Y, prob_Y])
+
+        # Build DataFrame
+        df = pd.DataFrame({
+            'X1': X1, 'X2': X2, 'X3': X3, 'X4': X4,
+            'X5': X5, 'X6': X6, 'X7': X7,
+            'T': T, 'Y': Y
+        })
+
+        # Split train/test
+        train_df, test_df = train_test_split(df, test_size=self.test_size, random_state=self.seed)
+        train_path = self.output_dir / "train_data.csv"
+        test_path = self.output_dir / "test_data.csv"
+        train_df.to_csv(train_path, index=False)
+        test_df.to_csv(test_path, index=False)
+        print(f"Data saved to {train_path} and {test_path}")
