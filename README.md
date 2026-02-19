@@ -31,7 +31,7 @@ In this project, I replicate the key findings of von Zahn et al. (2025) by imple
 ## This Repository
 
 My replication is conducted using Python and presented in the Jupyter notebook **_replication-notebook.ipynb_**.  
-The best way to view the notebook is by downloading this repository. Alternatively, the notebook can be viewed via mybinder or nbviewer by clicking the badges above. Some display features may not render perfectly in these viewers; any missing images or plots can be found in the [_files_](https://github.com/noahshiira/econ-481-improving-business-decisions/tree/main/files) folder.
+The best way to view the notebook is by downloading this repository. Alternatively, the notebook can be viewed via mybinder or nbviewer by clicking the badges above. Some display features may not render perfectly in these viewers; any missing images or plots can be found in the [_plots_](https://github.com/noahshiira/econ-481-improving-business-decisions/tree/main/plots) folder.
 
 The original paper and the data/code provided by the authors are available [here](https://pubsonline.informs.org/doi/10.1287/mksc.2022.0393).
 
