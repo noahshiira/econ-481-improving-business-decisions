@@ -34,15 +34,17 @@ class DataSimulator:
         # Treatment variable
         T = np.random.choice([0, 1], size=n, p=[0.5, 0.5])
 
-        # Outcome variable
-        Y = np.zeros(n, dtype=int)
-        for i in range(n):
-            if T[i] == 1:
-                prob_Y = 0.30 - 0.04 * (X1[i] + X2[i]) + 0.16 * (X3[i] * X4[i]) - 0.02 * X5[i] + 0.02 * X6[i]
-            else:
-                prob_Y = 0.30
-            prob_Y = min(max(prob_Y, 0), 1)
-            Y[i] = np.random.choice([0, 1], p=[1 - prob_Y, prob_Y])
+        # Vectorized outcome calculation
+        prob_Y = np.full(n, 0.30)  # base probability
+        treat_idx = T == 1
+        prob_Y[treat_idx] += (-0.04 * (X1[treat_idx] + X2[treat_idx])
+                              + 0.16 * (X3[treat_idx] * X4[treat_idx])
+                              - 0.02 * X5[treat_idx]
+                              + 0.02 * X6[treat_idx])
+        # Clip probabilities to [0, 1]
+        prob_Y = np.clip(prob_Y, 0, 1)
+        # Generate outcomes
+        Y = np.random.binomial(1, prob_Y, size=n)
 
         # Build DataFrame
         df = pd.DataFrame({
