@@ -1,0 +1,163 @@
+from dataclasses import dataclass
+from pathlib import Path
+import numpy as np
+import pandas as pd
+from datetime import datetime
+from sklearn.model_selection import train_test_split
+
+# -----------------------
+# Configuration
+# -----------------------
+@dataclass
+class SimulationConfig:
+    n_samples: int = 50_000
+    p_treatment: float = 0.5
+    base_prob: float = 0.30
+    random_state: int = 2024
+    output_dir: Path = Path("data")
+    train_file: str = "train_data.csv"
+    test_file: str = "test_data.csv"
+    test_size: float = 0.2
+    save_csv: bool = True
+    timestamped_files: bool = True
+
+
+# -----------------------
+# Feature Generation
+# -----------------------
+def generate_features(n, rng):
+    X1 = rng.random(n)
+    X2 = rng.random(n)
+    X3 = rng.random(n)
+    X4 = rng.random(n)
+
+    noise = rng.random(n)
+    X5 = 0.3 * X4 + np.sqrt(1 - 0.3**2) * noise
+
+    X6 = rng.binomial(1, 0.2, n)
+    X7 = rng.binomial(1, 0.2, n)
+
+    return pd.DataFrame({
+        "X1": X1, "X2": X2, "X3": X3,
+        "X4": X4, "X5": X5,
+        "X6": X6, "X7": X7
+    })
+
+
+# -----------------------
+# Potential Outcomes
+# -----------------------
+def compute_potential_outcomes(df, base_prob):
+    mu0 = np.full(len(df), base_prob)
+    tau = (
+        -0.04 * (df["X1"] + df["X2"])
+        + 0.16 * (df["X3"] * df["X4"])
+        - 0.02 * df["X5"]
+        + 0.02 * df["X6"]
+    )
+    mu1 = mu0 + tau
+    mu0 = np.clip(mu0, 0, 1)
+    mu1 = np.clip(mu1, 0, 1)
+    return mu0, mu1, tau
+
+
+# -----------------------
+# Treatment Assignment
+# -----------------------
+def assign_treatment(n, p, rng):
+    return rng.binomial(1, p, n)
+
+
+# -----------------------
+# Realized Outcome
+# -----------------------
+def sample_observed_outcome(T, mu0, mu1, rng):
+    prob = T * mu1 + (1 - T) * mu0
+    return rng.binomial(1, prob)
+
+
+# -----------------------
+# Main Simulation Function
+# -----------------------
+def simulate_dataset(config: SimulationConfig) -> pd.DataFrame:
+    rng = np.random.default_rng(config.random_state)
+
+    df = generate_features(config.n_samples, rng)
+    mu0, mu1, tau = compute_potential_outcomes(df, config.base_prob)
+    T = assign_treatment(config.n_samples, config.p_treatment, rng)
+    Y = sample_observed_outcome(T, mu0, mu1, rng)
+
+    df["T"] = T
+    df["Y"] = Y
+    df["tau"] = tau
+    df["mu0"] = mu0
+    df["mu1"] = mu1
+
+    return df
+
+
+# -----------------------
+# Train/Test Split & Optional CSV
+# -----------------------
+def save_train_test(df: pd.DataFrame, config: SimulationConfig):
+    train_df, test_df = train_test_split(
+        df, test_size=config.test_size, random_state=config.random_state
+    )
+
+    if config.save_csv:
+        config.output_dir.mkdir(parents=True, exist_ok=True)
+
+        if config.timestamped_files:
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            train_path = config.output_dir / f"train_data_{ts}.csv"
+            test_path = config.output_dir / f"test_data_{ts}.csv"
+        else:
+            train_path = config.output_dir / config.train_file
+            test_path = config.output_dir / config.test_file
+
+        train_df.to_csv(train_path, index=False)
+        test_df.to_csv(test_path, index=False)
+        print(f"Train/test split complete. Files saved to {train_path} and {test_path}")
+
+    return train_df, test_df
+
+
+# -----------------------
+# Monte Carlo Experiments
+# -----------------------
+def run_monte_carlo(config: SimulationConfig, n_simulations: int, save_summary: bool = True):
+    """
+    Run Monte Carlo experiments and log summary stats.
+
+    Parameters:
+        config: SimulationConfig object
+        n_simulations: int, number of simulations to run
+        save_summary: bool, if True save summary CSV
+
+    Returns:
+        results_df: pd.DataFrame with simulation summaries
+    """
+    summaries = []
+
+    for i in range(n_simulations):
+        config.random_state += 1
+        df = simulate_dataset(config)
+        true_ate = df["tau"].mean()
+        true_cate_std = df["tau"].std()
+        summaries.append({
+            "simulation": i + 1,
+            "true_ATE": true_ate,
+            "true_CATE_std": true_cate_std,
+            "n_samples": config.n_samples
+        })
+
+    results_df = pd.DataFrame(summaries)
+
+    if save_summary:
+        config.output_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        summary_file = config.output_dir / f"monte_carlo_summary_{ts}.csv"
+        results_df.to_csv(summary_file, index=False)
+        print(f"Monte Carlo summary saved to {summary_file}")
+
+    return results_df

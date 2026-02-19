@@ -1,0 +1,39 @@
+import yaml
+from pathlib import Path
+from simulation import SimulationConfig, simulate_dataset, save_train_test, run_monte_carlo
+
+def load_config(path: str) -> SimulationConfig:
+    with open(path, "r") as f:
+        cfg = yaml.safe_load(f)
+    sim_cfg = cfg.get("simulation", {})
+
+    return SimulationConfig(
+        n_samples=sim_cfg.get("n_samples", 50000),
+        p_treatment=sim_cfg.get("p_treatment", 0.5),
+        base_prob=sim_cfg.get("base_prob", 0.3),
+        random_state=sim_cfg.get("random_state", 2024),
+        output_dir=Path(sim_cfg.get("output_dir", "data")),
+        train_file=sim_cfg.get("train_file", "train_data.csv"),
+        test_file=sim_cfg.get("test_file", "test_data.csv"),
+        test_size=sim_cfg.get("test_size", 0.2),
+        save_csv=sim_cfg.get("save_csv", True),
+        timestamped_files=sim_cfg.get("timestamped_files", True)
+    )
+
+if __name__ == "__main__":
+    config_path = "config.yaml"
+    config = load_config(config_path)
+
+    # Run single simulation
+    df = simulate_dataset(config)
+    train_df, test_df = save_train_test(df, config)
+
+    # Monte Carlo experiments with logging
+    with open(config_path, "r") as f:
+        cfg = yaml.safe_load(f)
+    n_simulations = cfg.get("monte_carlo", {}).get("n_simulations", 0)
+
+    if n_simulations > 0:
+        summary_df = run_monte_carlo(config, n_simulations, save_summary=True)
+        print("Monte Carlo summary:")
+        print(summary_df)
