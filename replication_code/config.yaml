@@ -8,7 +8,8 @@ simulation:
   train_file: "train_data.csv"
   test_file: "test_data.csv"
   test_size: 0.2
+  save_csv: true          # NEW: whether to save CSV files
+  timestamped_files: true # NEW: add timestamp to filenames
 
 monte_carlo:
   n_simulations: 10
-
