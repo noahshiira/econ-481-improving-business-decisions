@@ -1,8 +1,9 @@
-# simulation.py
 from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
 import pandas as pd
+from datetime import datetime
+from sklearn.model_selection import train_test_split
 
 # -----------------------
 # Configuration
@@ -17,13 +18,14 @@ class SimulationConfig:
     train_file: str = "train_data.csv"
     test_file: str = "test_data.csv"
     test_size: float = 0.2
+    save_csv: bool = True
+    timestamped_files: bool = True
 
 
 # -----------------------
 # Feature Generation
 # -----------------------
 def generate_features(n, rng):
-    """Generate predictor features X1-X7"""
     X1 = rng.random(n)
     X2 = rng.random(n)
     X3 = rng.random(n)
@@ -46,21 +48,16 @@ def generate_features(n, rng):
 # Potential Outcomes
 # -----------------------
 def compute_potential_outcomes(df, base_prob):
-    """Compute Y(0), Y(1), and true CATE"""
     mu0 = np.full(len(df), base_prob)
-
-    # Treatment effect heterogeneity
     tau = (
         -0.04 * (df["X1"] + df["X2"])
         + 0.16 * (df["X3"] * df["X4"])
         - 0.02 * df["X5"]
         + 0.02 * df["X6"]
     )
-
     mu1 = mu0 + tau
     mu0 = np.clip(mu0, 0, 1)
     mu1 = np.clip(mu1, 0, 1)
-
     return mu0, mu1, tau
 
 
@@ -68,7 +65,6 @@ def compute_potential_outcomes(df, base_prob):
 # Treatment Assignment
 # -----------------------
 def assign_treatment(n, p, rng):
-    """Random treatment assignment"""
     return rng.binomial(1, p, n)
 
 
@@ -76,7 +72,6 @@ def assign_treatment(n, p, rng):
 # Realized Outcome
 # -----------------------
 def sample_observed_outcome(T, mu0, mu1, rng):
-    """Sample Y based on T and potential outcomes"""
     prob = T * mu1 + (1 - T) * mu0
     return rng.binomial(1, prob)
 
@@ -85,7 +80,6 @@ def sample_observed_outcome(T, mu0, mu1, rng):
 # Main Simulation Function
 # -----------------------
 def simulate_dataset(config: SimulationConfig) -> pd.DataFrame:
-    """Simulate dataset with features, treatment, observed outcome, and true CATE"""
     rng = np.random.default_rng(config.random_state)
 
     df = generate_features(config.n_samples, rng)
@@ -95,7 +89,7 @@ def simulate_dataset(config: SimulationConfig) -> pd.DataFrame:
 
     df["T"] = T
     df["Y"] = Y
-    df["tau"] = tau    # true CATE
+    df["tau"] = tau
     df["mu0"] = mu0
     df["mu1"] = mu1
 
@@ -103,46 +97,39 @@ def simulate_dataset(config: SimulationConfig) -> pd.DataFrame:
 
 
 # -----------------------
-# Train/Test Split & Save
+# Train/Test Split & Optional CSV
 # -----------------------
 def save_train_test(df: pd.DataFrame, config: SimulationConfig):
-    """Split dataset and save CSV files"""
-    from sklearn.model_selection import train_test_split
-
-    config.output_dir.mkdir(parents=True, exist_ok=True)
-
     train_df, test_df = train_test_split(
         df, test_size=config.test_size, random_state=config.random_state
     )
 
-    train_path = config.output_dir / config.train_file
-    test_path = config.output_dir / config.test_file
+    if config.save_csv:
+        config.output_dir.mkdir(parents=True, exist_ok=True)
 
-    train_df.to_csv(train_path, index=False)
-    test_df.to_csv(test_path, index=False)
+        if config.timestamped_files:
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            train_path = config.output_dir / f"train_data_{ts}.csv"
+            test_path = config.output_dir / f"test_data_{ts}.csv"
+        else:
+            train_path = config.output_dir / config.train_file
+            test_path = config.output_dir / config.test_file
 
-    print(f"Train/test split complete. Files saved to {train_path} and {test_path}")
+        train_df.to_csv(train_path, index=False)
+        test_df.to_csv(test_path, index=False)
+        print(f"Train/test split complete. Files saved to {train_path} and {test_path}")
+
+    return train_df, test_df
 
 
 # -----------------------
 # Monte Carlo Experiments
 # -----------------------
 def run_monte_carlo(config: SimulationConfig, n_simulations: int):
-    """Run Monte Carlo experiments and return list of true ATEs"""
     results = []
     for i in range(n_simulations):
-        # Adjust random state each iteration for independence
         config.random_state += 1
         df = simulate_dataset(config)
         true_ate = df["tau"].mean()
         results.append(true_ate)
     return results
-
-
-# -----------------------
-# Entry Point
-# -----------------------
-if __name__ == "__main__":
-    config = SimulationConfig()
-    df = simulate_dataset(config)
-    save_train_test(df, config)
