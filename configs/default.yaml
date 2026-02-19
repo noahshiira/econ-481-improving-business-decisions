@@ -1,3 +1,7 @@
 simulation:
-  seed: 42
-  n_customers: 1000
+  seed: 2024
+  n_samples: 50000
+  test_size: 0.2
+
+paths:
+  data_dir: "data"
