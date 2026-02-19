@@ -125,11 +125,39 @@ def save_train_test(df: pd.DataFrame, config: SimulationConfig):
 # -----------------------
 # Monte Carlo Experiments
 # -----------------------
-def run_monte_carlo(config: SimulationConfig, n_simulations: int):
-    results = []
+def run_monte_carlo(config: SimulationConfig, n_simulations: int, save_summary: bool = True):
+    """
+    Run Monte Carlo experiments and log summary stats.
+
+    Parameters:
+        config: SimulationConfig object
+        n_simulations: int, number of simulations to run
+        save_summary: bool, if True save summary CSV
+
+    Returns:
+        results_df: pd.DataFrame with simulation summaries
+    """
+    summaries = []
+
     for i in range(n_simulations):
         config.random_state += 1
         df = simulate_dataset(config)
         true_ate = df["tau"].mean()
-        results.append(true_ate)
-    return results
+        true_cate_std = df["tau"].std()
+        summaries.append({
+            "simulation": i + 1,
+            "true_ATE": true_ate,
+            "true_CATE_std": true_cate_std,
+            "n_samples": config.n_samples
+        })
+
+    results_df = pd.DataFrame(summaries)
+
+    if save_summary:
+        config.output_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        summary_file = config.output_dir / f"monte_carlo_summary_{ts}.csv"
+        results_df.to_csv(summary_file, index=False)
+        print(f"Monte Carlo summary saved to {summary_file}")
+
+    return results_df
