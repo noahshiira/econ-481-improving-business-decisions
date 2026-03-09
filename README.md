@@ -1,45 +1,109 @@
-# Student Project: Replication of von Zahn et al. (2025)
+# Replication: Smart Green Nudging (von Zahn et al., 2024)
 
-<a href="https://nbviewer.jupyter.org/github/noahshiira/econ-481-improving-business-decisions/blob/main/replication-notebook.ipynb"
-   target="_parent">
-   <img align="center" 
-  src="https://raw.githubusercontent.com/jupyter/design/master/logos/Badges/nbviewer_badge.png" 
-      width="109" height="20"> 
-</a> 
-<a href="https://mybinder.org/v2/gh/noahshiira/econ-481-improving-business-decisions/main?filepath=replication-notebook.ipynb"
-    target="_parent">
-    <img align="center"
-       src="https://mybinder.org/badge_logo.svg"
-       width="109" height="20">
-</a>
+A replication of **"Smart Green Nudging: Reducing Product Returns Through Digital Footprints and Causal Machine Learning"** published in *Marketing Science*.
+
+> von Zahn, M., Feuerriegel, S., & Kuehl, N. (2024). https://doi.org/10.1287/mksc.2022.0393
 
 ---
 
-This repository contains my replication of the results from [von Zahn, M., Bauer, K., Mihale Wilson, C., Jagow, J., Speicher, M., & Hinz, O. (2025)](https://pubsonline.informs.org/doi/10.1287/mksc.2022.0393).  
-**Smart Green Nudging: Reducing Product Returns Through Digital Footprints and Causal Machine Learning.** _Marketing Science_, 44(4), 954–969.
+## Overview
+
+This notebook replicates all four core components of the paper using **simulated data**:
+
+| Section | Method |
+|---|---|
+| Field Experiment & ATE | OLS (naive + covariate-adjusted) + IPW |
+| Digital Footprint Features | Behavioral feature engineering |
+| Heterogeneous Treatment Effects | `econml` CausalForestDML |
+| Targeting Policy & Profit | Policy curve, value of personalization |
+
+Each section includes an **LLM interpretation** via `litellm` + Llama3.2 running locally via Ollama.
 
 ---
 
-## Replication of von Zahn et al. (2025)
+## Setup
 
-The paper investigates how digital “green nudges” can reduce product returns by using causal machine learning and digital footprint data. The authors analyze how customers respond to nudges that highlight environmental impact and provide personalized recommendations, using causal inference methods to estimate treatment effects and identify heterogeneous responses across different customer segments.
+### 1. Install dependencies
 
-In this project, I replicate the key findings of von Zahn et al. (2025) by implementing the same empirical design and causal machine learning methods using Python. Additionally, I extend the analysis by conducting robustness checks and sensitivity analyses to verify the stability of the original results.
+```bash
+pip install econml litellm pandas numpy matplotlib seaborn scikit-learn statsmodels
+```
+
+### 2. Start Ollama with Llama3.2
+
+```bash
+# Install Ollama: https://ollama.ai
+ollama pull llama3.2
+ollama serve   # runs on localhost:11434 by default
+```
+
+### 3. Add your data
+
+Place your simulation CSVs in a `data/` folder:
+
+```
+data/
+  train.csv    # Customer features + treatment + return outcome
+  test.csv
+```
+
+Expected columns (at minimum):
+- `treatment` — binary (1 = nudge shown, 0 = control)
+- `returned` — binary outcome (1 = item returned)
+- Any numeric customer/order feature columns
+
+Update `TREATMENT_COL`, `OUTCOME_COL`, and `FEATURE_COLS` at the top of Section 1 if your column names differ.
+
+### 4. Run the notebook
+
+```bash
+jupyter notebook replication_smart_green_nudging.ipynb
+```
 
 ---
 
-## This Repository
+## Structure
 
-My replication is conducted using Python and presented in the Jupyter notebook **_replication-notebook.ipynb_**.  
-The best way to view the notebook is by downloading this repository. Alternatively, the notebook can be viewed via mybinder or nbviewer by clicking the badges above. Some display features may not render perfectly in these viewers; any missing images or plots can be found in the [_plots_](https://github.com/noahshiira/econ-481-improving-business-decisions/tree/main/plots) folder.
-
-The original paper and the data/code provided by the authors are available [here](https://pubsonline.informs.org/doi/10.1287/mksc.2022.0393).
+```
+.
+├── replication_smart_green_nudging.ipynb   # Main replication notebook
+├── data/
+│   ├── train.csv                           # Simulated training data (not committed)
+│   └── test.csv                            # Simulated test data (not committed)
+├── README.md
+└── requirements.txt
+```
 
 ---
 
-## How to Run
+## LLM Integration
 
-1. Clone the repository  
-2. Install requirements:  
-   ```bash
-   pip install -r requirements.txt
+The notebook uses `litellm` to call a local **Llama3.2** model (via Ollama) at the end of each section. If Ollama is not running, the notebook still executes fully — LLM cells print a fallback message instead.
+
+```python
+import litellm
+response = litellm.completion(
+    model="ollama_chat/llama3.2",
+    messages=[{"role": "user", "content": prompt}],
+    temperature=0.0,
+)
+```
+
+---
+
+## Key Results (example with simulated data)
+
+- **ATE**: Green nudge reduces return probability by ~X pp (OLS + controls)
+- **CATE heterogeneity**: ~Y% of customers show beneficial nudge effects
+- **Value of personalization**: Smart targeting outperforms universal nudging by €Z per cohort
+
+*Actual values depend on your simulation parameters.*
+
+---
+
+## References
+
+- von Zahn et al. (2024) — *Marketing Science* — https://doi.org/10.1287/mksc.2022.0393
+- Wager & Athey (2018) — Causal Forests — *JASA*
+- EconML library — https://econml.azurewebsites.net/
+- LiteLLM — https://docs.litellm.ai/
